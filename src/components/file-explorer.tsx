@@ -27,8 +27,6 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-const API_URL = 'http://localhost:3001';
-
 function formatBytes(bytes: number, decimals = 2) {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -74,7 +72,7 @@ export function FileExplorer() {
   const fetchFiles = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/files`);
+      const response = await fetch('/api/files');
       const data = await response.json();
       setFiles(data);
     } catch (error) {
@@ -108,7 +106,7 @@ export function FileExplorer() {
       formData.append('file', file);
 
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_URL}/api/upload`, true);
+      xhr.open('POST', '/api/upload', true);
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -156,7 +154,7 @@ export function FileExplorer() {
 
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`${API_URL}/api/files/${id}`, {
+      const response = await fetch(`/api/files/${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
