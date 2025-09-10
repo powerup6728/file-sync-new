@@ -41,8 +41,14 @@ const upload = multer({ storage: storage });
 app.get('/api/files', (req, res) => {
   try {
     const stmt = db.prepare('SELECT * FROM files ORDER BY createdAt DESC');
-    const files = stmt.all();
-    res.json(files);
+    const files = stmt.all() as { id: number; name: string; path: string; mimetype: string; size: number; createdAt: string }[];
+    
+    const filesWithUrls = files.map(file => ({
+      ...file,
+      url: `/uploads/${path.basename(file.path)}`
+    }));
+
+    res.json(filesWithUrls);
   } catch (error) {
     console.error('Failed to fetch files:', error);
     res.status(500).json({ error: 'Failed to fetch files' });
@@ -55,16 +61,20 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   }
 
   try {
-    const { originalname, path, mimetype, size } = req.file;
+    const { originalname, filename, mimetype, size } = req.file;
+    // Store filename instead of the full path
     const stmt = db.prepare(
       'INSERT INTO files (name, path, mimetype, size) VALUES (?, ?, ?, ?)'
     );
-    const info = stmt.run(originalname, path, mimetype, size);
+    const info = stmt.run(originalname, filename, mimetype, size);
 
     const newFileStmt = db.prepare('SELECT * FROM files WHERE id = ?');
-    const newFile = newFileStmt.get(info.lastInsertRowid);
+    const newFile = newFileStmt.get(info.lastInsertRowid) as { id: number; name: string; path: string; mimetype: string; size: number; createdAt: string };
 
-    res.status(201).json(newFile);
+    res.status(201).json({
+        ...newFile,
+        url: `/uploads/${newFile.path}`
+    });
   } catch (error) {
     console.error('Failed to upload file:', error);
     res.status(500).json({ error: 'Failed to save file information' });
@@ -81,8 +91,11 @@ app.delete('/api/files/:id', (req, res) => {
             return res.status(404).json({ error: 'File not found' });
         }
 
+        // Reconstruct the full path for deletion
+        const fullPath = path.join(uploadsDir, file.path);
+
         // Delete file from filesystem
-        fs.unlink(file.path, (err) => {
+        fs.unlink(fullPath, (err) => {
             if (err) {
                 // Log error but proceed to delete from DB anyway
                 console.error('Failed to delete file from filesystem:', err);
@@ -105,7 +118,6 @@ app.delete('/api/files/:id', (req, res) => {
 });
 
 
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
-  console.log(`Accessible on your network. You can now configure port forwarding.`);
 });
